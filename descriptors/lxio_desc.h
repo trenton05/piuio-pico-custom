@@ -90,13 +90,25 @@ static const uint8_t lxio_configuration_descriptor[] =
     0x00,                            // bInterfaceProtocol (0x00 = No Protocol)
     0,                               // iInterface
         // HID interface descriptor, HID 1.11 spec, section 6.2.1
+#if defined(LXIO_FIX_DESCRIPTOR)
+    11,                              // bLength
+#else
     9,                               // bLength
+#endif
     0x21,                            // bDescriptorType
     0x11, 0x01,                      // bcdHID
     0,                               // bCountryCode
+#if defined(LXIO_FIX_DESCRIPTOR)
+    2,                               // bNumDescriptors
+    0x22,                            // bDescriptorType
+    sizeof(lxio_report_descriptor),  // wDescriptorLength
+    0x22,                            // bDescriptorType
+    sizeof(lxio_report_descriptor),  // wDescriptorLength
+#else
     1,                               // bNumDescriptors
     0x22,                            // bDescriptorType
     sizeof(lxio_report_descriptor),  // wDescriptorLength
+#endif
     0,
         // endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
     7,                               // bLength

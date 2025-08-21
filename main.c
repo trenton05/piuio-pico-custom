@@ -20,7 +20,7 @@
 #include "piuio_config.h"
 #include "input_mode.h"
 
-#include "uart_structs.h"
+// #include "uart_structs.h"
 
 #include "input_mux4067.h"
 #include "lights_latch32.h"
@@ -111,6 +111,11 @@ struct inputArray input_mux[MUX_COUNT];
 
 // note that lights array are ACTIVE HIGH
 struct lightsArray lights = {
+    .data = {0x00}
+};
+// this is a lights array that gets written to when data is still being transferred.
+// once data is finished transferring it should copy its contents to the real lights array
+struct lightsArray temp_lights = {
     .data = {0x00}
 };
 
@@ -244,19 +249,20 @@ void input_task() {
 void config_mode_led_update(uint32_t* buf) {
     uint32_t time = board_millis();
     uint8_t blink_count = (time / SERVICE_BLINK_INTERVAL) % (input_mode + 1);
-    // blink for BLINK_LENGTH every BLINK_INTERVAL ms for input_mode times.
+    // blink for BLINK_LENGTH every BLINK_INTERVAL ms for input_mode times on the cab, but blink constantly for pad
     // then leave an empty spot at the end to separate the next blinking cycle
-    bool state = (blink_count <= input_mode_tmp) && (time % SERVICE_BLINK_INTERVAL <= SERVICE_BLINK_LENGTH);
+    bool pad_state = (time % SERVICE_BLINK_INTERVAL <= SERVICE_BLINK_LENGTH);
+    bool state = (blink_count <= input_mode_tmp) && pad_state;
 
     SETORCLRBIT(*buf, LATCH_JAMMA_LED, state);
 
-    SETORCLRBIT(*buf, LATCH_P1L_UPLEFT, state && (input_mode_tmp & 0b100));
-    SETORCLRBIT(*buf, LATCH_P1L_CENTER, state && (input_mode_tmp & 0b10));
-    SETORCLRBIT(*buf, LATCH_P1L_UPRIGHT, state && (input_mode_tmp & 0b1));
+    SETORCLRBIT(*buf, LATCH_P1L_UPLEFT, pad_state && (input_mode_tmp & 0b100));
+    SETORCLRBIT(*buf, LATCH_P1L_CENTER, pad_state && (input_mode_tmp & 0b10));
+    SETORCLRBIT(*buf, LATCH_P1L_UPRIGHT, pad_state && (input_mode_tmp & 0b1));
 
-    SETORCLRBIT(*buf, LATCH_P2L_UPLEFT, state && (input_mode_tmp & 0b100));
-    SETORCLRBIT(*buf, LATCH_P2L_CENTER, state && (input_mode_tmp & 0b10));
-    SETORCLRBIT(*buf, LATCH_P2L_UPRIGHT, state && (input_mode_tmp & 0b1));
+    SETORCLRBIT(*buf, LATCH_P2L_UPLEFT, pad_state && (input_mode_tmp & 0b100));
+    SETORCLRBIT(*buf, LATCH_P2L_CENTER, pad_state && (input_mode_tmp & 0b10));
+    SETORCLRBIT(*buf, LATCH_P2L_UPRIGHT, pad_state && (input_mode_tmp & 0b1));
 
     SETORCLRBIT(*buf, LATCH_CABL_MARQ1, state && (input_mode_tmp & 0b100));
     SETORCLRBIT(*buf, LATCH_CABL_MARQ2, state && (input_mode_tmp & 0b10));
@@ -384,7 +390,7 @@ void send_report(void *report, uint16_t report_size) {
     if (tud_suspended())
         tud_remote_wakeup();
 
-    if (memcmp(previous_report, report, report_size) != 0) {
+    if (memcmp(previous_report, report, report_size) != 0 || ((input_mode == INPUT_MODE_LXIO) && LXIO_ALWAYS_SEND_REPORT)) {
         bool sent = false;
         switch (input_mode) {
             case INPUT_MODE_XINPUT:
@@ -541,10 +547,16 @@ int main() {
     ws2812_init(&lights);
     #endif
 
+    // this is a delay added in case any components are not ready to start yet
+    sleep_ms(100);
+
     mux4067_init();
     lights_init();
 
     init();
+
+    // this is a delay added in case USB is not ready to start yet
+    sleep_ms(100);
 
     tusb_init();
 
@@ -590,10 +602,8 @@ const usbd_class_driver_t *usbd_app_driver_get_cb(uint8_t *driver_count)
 
 bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * request) {
     // nothing to with DATA & ACK stage
-    if (stage != CONTROL_STAGE_SETUP) return true;
-
     if (input_mode == INPUT_MODE_PIUIO) {
-
+        
         #ifdef BENCHMARK
         static uint8_t loop_toggle_out = 0x00;
         static uint8_t loop_toggle_in = 0x00;
@@ -601,33 +611,47 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
 
         // Request 0xAE = IO Time
         if (request->bRequest == 0xAE) {
-            switch (request->bmRequestType) {
-                case 0x40:
+            switch (request->bmRequestType_bit.direction) {
+                case TUSB_DIR_OUT:  // lights
 
                     #ifdef BENCHMARK
-                    loop_toggle_out ^= 0x01;
-                    gpio_put(BENCHMARK_PIN_2, loop_toggle_out);
+                    if (stage == CONTROL_STAGE_SETUP) {
+                        loop_toggle_out ^= 0x01;
+                        gpio_put(BENCHMARK_PIN_2, loop_toggle_out);
+                    }
                     #endif
 
                     if (config_mode)
                         return false;
-                    return tud_control_xfer(rhport, request, (void *)&lights.data, 8);
-                case 0xC0:
+                    if (stage == CONTROL_STAGE_SETUP)
+                        return tud_control_xfer(rhport, request, (void *)&temp_lights.data, sizeof(temp_lights.data));
+                    if (stage == CONTROL_STAGE_DATA)
+                        memcpy(&lights.data, &temp_lights.data, sizeof(temp_lights.data));
+                    if (stage == CONTROL_STAGE_ACK)
+                        return true;
+
+                case TUSB_DIR_IN:  // input
 
                     #ifdef BENCHMARK
-                    loop_toggle_in ^= 0x01;
-                    gpio_put(BENCHMARK_PIN_3, loop_toggle_in);
+                    if (stage == CONTROL_STAGE_SETUP) {
+                        loop_toggle_in ^= 0x01;
+                        gpio_put(BENCHMARK_PIN_3, loop_toggle_in);
+                    }
                     #endif
 
                     // if in config mode, make sure that we turn all inputs off or inputs will get stuck!
                     if (config_mode)
-                        return tud_control_xfer(rhport, request, (void *)all_inputs_off, 8);
-                    
-                    return tud_control_xfer(rhport, request, (void *)&input.data, 8);
+                        return tud_control_xfer(rhport, request, (void *)all_inputs_off, sizeof(input.data));
+                    if (stage == CONTROL_STAGE_SETUP)
+                        return tud_control_xfer(rhport, request, (void *)&input.data, sizeof(input.data));
+                    if (stage == CONTROL_STAGE_DATA || stage == CONTROL_STAGE_ACK)
+                        return true;
                 default:
                     return false;
             }
         }
+
+        return true;
     }
 
     return false;

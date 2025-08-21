@@ -31,7 +31,15 @@
 // 25Hz worst case the game is reading the wrong sensor.
 // setting this to true will improve sensor press polling to always be 100Hz,
 // but release polling will still be 25Hz worst case.
-#define MERGE_MUX_PIUIO false
+#define MERGE_MUX_PIUIO true
+
+// the LXIO (at least the older versions) has an incorrect USB descriptor
+// leaving this uncommented will fix andamiro's mistake
+// #define LXIO_FIX_DESCRIPTOR
+
+// always send an LXIO report even when nothing has changed
+// although this is less efficient this what the real I/O does
+#define LXIO_ALWAYS_SEND_REPORT true
 
 // time in microseconds to wait between input/lights operations
 // this accounts for variance in the brokeIO's multiplexer and latch chips
