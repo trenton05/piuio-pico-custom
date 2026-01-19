@@ -51,7 +51,7 @@
 #define ALWAYS_BOOTLOADER false
 
 // default input mode unless otherwise specified in the flash memory
-#define DEFAULT_INPUT_MODE INPUT_MODE_SERIAL
+#define DEFAULT_INPUT_MODE INPUT_MODE_LXIO
 
 // use software SPI to control latch for outputs
 // for some reason hardware SPI wasn't working right for me so I have it enabled

@@ -33,101 +33,174 @@ const uint8_t mux_p2_inputs[] = {
     MUX4067_P2_DOWNRIGHT,
 };
 
+#define C_MUX11 9
+#define C_MUX12 10
+
+#define C_MUX21 0
+#define C_MUX22 1
+
+#define C_MUX_S0 8
+#define C_MUX_S1 7
+#define C_MUX_S2 6
+#define C_MUX_S3 5
+
+
 void mux4067_init() {
     // last_mux = 0;
 
-    gpio_init(MUX_ENABLE_PIN);
-    gpio_init(MUX1_IN_PIN);
-    gpio_init(MUX2_IN_PIN);
+    gpio_init(C_MUX11);
+    gpio_init(C_MUX12);
+    gpio_init(C_MUX21);
+    gpio_init(C_MUX22);
 
-    gpio_init(MUX_S0_PIN);
-    gpio_init(MUX_S1_PIN);
-    gpio_init(MUX_S2_PIN);
-    gpio_init(MUX_S3_PIN);
+    gpio_init(C_MUX_S0);
+    gpio_init(C_MUX_S1);
+    gpio_init(C_MUX_S2);
+    gpio_init(C_MUX_S3);
 
-    // set pinModes
-    gpio_set_dir(MUX_ENABLE_PIN, true);  // set to output
+    gpio_set_dir(C_MUX11, false);  // set to input
+    gpio_set_dir(C_MUX12, false);  // set to input
+    gpio_set_dir(C_MUX21, false);  // set to input
+    gpio_set_dir(C_MUX22, false);  // set to input
 
-    gpio_set_dir(MUX1_IN_PIN, false);  // set to input
-    gpio_set_dir(MUX2_IN_PIN, false);  // set to input
-    #ifdef PULLUP_IN
-        gpio_pull_up(MUX1_IN_PIN);  // enable pull-up resistor
-        gpio_pull_up(MUX2_IN_PIN);  // enable pull-up resistor
-    #endif
+    // pull ups
+    gpio_pull_up(C_MUX11);
+    gpio_pull_up(C_MUX12);
+    gpio_pull_up(C_MUX21);
+    gpio_pull_up(C_MUX22);
 
-    gpio_set_dir(MUX_S0_PIN, true);  // set to output
-    gpio_set_dir(MUX_S1_PIN, true);  // set to output
-    gpio_set_dir(MUX_S2_PIN, true);  // set to output
-    gpio_set_dir(MUX_S3_PIN, true);  // set to output
-
-    // make sure everything is low
-    mux4067_reset();
-    // enable MUXes
-    mux4067_enable();
-}
-
-void mux4067_enable() {
-    gpio_put(MUX_ENABLE_PIN, 0);
-}
-
-void mux4067_disable() {
-    gpio_put(MUX_ENABLE_PIN, 1);
-}
-
-void mux4067_reset() {
-    // set read inputs to 0
-    for (int i = 0; i < 5; i++) {
-        mux4067_vals[i] = 0;
-        mux4067_vals_db[i] = 0;
-    }
-
-    // clear all selector pins
-    gpio_put(MUX_S0_PIN, 0);
-    gpio_put(MUX_S1_PIN, 0);
-    gpio_put(MUX_S2_PIN, 0);
-    gpio_put(MUX_S3_PIN, 0);
-
-    // disable MUX until enabled again
-    mux4067_disable();
+    gpio_set_dir(C_MUX_S0, true);  // set to output
+    gpio_set_dir(C_MUX_S1, true);  // set to output
+    gpio_set_dir(C_MUX_S2, true);  // set to output
+    gpio_set_dir(C_MUX_S3, true);  // set to output
 }
 
 void mux4067_update(uint8_t mux_p1, uint8_t mux_p2) {
+    uint32_t m1, m2;
     for (int i = 15; i >= 0; i--) {
         // set the selector pins to the current value
-        gpio_put(MUX_S3_PIN, (i >> 3) & 1);
-        gpio_put(MUX_S2_PIN, (i >> 2) & 1);
-        gpio_put(MUX_S1_PIN, (i >> 1) & 1);
-        gpio_put(MUX_S0_PIN, i & 1);
+        gpio_put(C_MUX_S3, (i >> 3) & 1);
+        gpio_put(C_MUX_S2, (i >> 2) & 1);
+        gpio_put(C_MUX_S1, (i >> 1) & 1);
+        gpio_put(C_MUX_S0, i & 1);
 
         busy_wait_us(WAIT_INPUT_MUX4067);  // wait for selector to change
 
-        // select mux based on if the input is related to P1 or P2 mux or neither
-        uint8_t mux1 = MUX_GLOBAL;
-        uint8_t mux2 = MUX_GLOBAL;
-        for (int j = 0; j < MUX_P1_INPUTS_SIZE; j++) {
-            if (i == mux_p1_inputs[j]) {
-                mux1 = mux_p1;
-            } else if (i + 16 == mux_p1_inputs[j]) {
-                mux2 = mux_p1;
-            }
-        }
-        for (int j = 0; j < MUX_P2_INPUTS_SIZE; j++) {
-            if (i == mux_p2_inputs[j]) {
-                mux1 = mux_p2;
-            } else if (i + 16 == mux_p2_inputs[j]) {
-                mux2 = mux_p2;
-            }
-        }
+        // // select mux based on if the input is related to P1 or P2 mux or neither
+        // uint8_t mux1 = MUX_GLOBAL;
+        // uint8_t mux2 = MUX_GLOBAL;
+        // for (int j = 0; j < MUX_P1_INPUTS_SIZE; j++) {
+        //     if (i == mux_p1_inputs[j]) {
+        //         mux1 = mux_p1;
+        //     } else if (i + 16 == mux_p1_inputs[j]) {
+        //         mux2 = mux_p1;
+        //     }
+        // }
+        // for (int j = 0; j < MUX_P2_INPUTS_SIZE; j++) {
+        //     if (i == mux_p2_inputs[j]) {
+        //         mux1 = mux_p2;
+        //     } else if (i + 16 == mux_p2_inputs[j]) {
+        //         mux2 = mux_p2;
+        //     }
+        // }
 
-        // read this value from BOTH muxes and store them in the ith bit and the (i+16)th bit respectively
-        #ifdef PULLUP_IN
-            SETORCLRBIT(mux4067_vals[mux1], i, !gpio_get(MUX1_IN_PIN));
-            SETORCLRBIT(mux4067_vals[mux2], i+16, !gpio_get(MUX2_IN_PIN));
-        #else
-            SETORCLRBIT(mux4067_vals[mux1], i, gpio_get(MUX1_IN_PIN));
-            SETORCLRBIT(mux4067_vals[mux2], i+16, gpio_get(MUX2_IN_PIN));
-        #endif
+
+
+        // // read this value from BOTH muxes and store them in the ith bit and the (i+16)th bit respectively
+        // #ifdef PULLUP_IN
+        //     SETORCLRBIT(mux4067_vals[mux1], i, !gpio_get(MUX1_IN_PIN));
+        //     SETORCLRBIT(mux4067_vals[mux2], i+16, !gpio_get(MUX2_IN_PIN));
+        // #else
+        //     SETORCLRBIT(mux4067_vals[mux1], i, gpio_get(MUX1_IN_PIN));
+        //     SETORCLRBIT(mux4067_vals[mux2], i+16, gpio_get(MUX2_IN_PIN));
+        // #endif
+
+        SETORCLRBIT(m1, i, !gpio_get(C_MUX11));
+        SETORCLRBIT(m1, i + 16, !gpio_get(C_MUX12));
+        SETORCLRBIT(m2, i, !gpio_get(C_MUX21));
+        SETORCLRBIT(m2, i + 16, !gpio_get(C_MUX22));
     }
+
+    // DR
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P1_DOWNRIGHT, GETBIT(m1, 0));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P1_DOWNRIGHT, GETBIT(m1, 1));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P1_DOWNRIGHT, GETBIT(m1, 2));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P1_DOWNRIGHT, GETBIT(m1, 3));
+    // UR
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P1_UPRIGHT, GETBIT(m1, 4));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P1_UPRIGHT, GETBIT(m1, 5));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P1_UPRIGHT, GETBIT(m1, 6));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P1_UPRIGHT, GETBIT(m1, 7));
+    // CN
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P1_CENTER, GETBIT(m1, 8));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P1_CENTER, GETBIT(m1, 9));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P1_CENTER, GETBIT(m1, 10));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P1_CENTER, GETBIT(m1, 11));
+    // UL
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P1_UPLEFT, GETBIT(m1, 12));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P1_UPLEFT, GETBIT(m1, 13));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P1_UPLEFT, GETBIT(m1, 14));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P1_UPLEFT, GETBIT(m1, 15));
+    // DL
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P1_DOWNLEFT, GETBIT(m1, 16));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P1_DOWNLEFT, GETBIT(m1, 17));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P1_DOWNLEFT, GETBIT(m1, 18));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P1_DOWNLEFT, GETBIT(m1, 19));
+
+    // DR
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P2_DOWNRIGHT, GETBIT(m2, 0));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P2_DOWNRIGHT, GETBIT(m2, 1));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P2_DOWNRIGHT, GETBIT(m2, 2));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P2_DOWNRIGHT, GETBIT(m2, 3));
+    // UR
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P2_UPRIGHT, GETBIT(m2, 4));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P2_UPRIGHT, GETBIT(m2, 5));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P2_UPRIGHT, GETBIT(m2, 6));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P2_UPRIGHT, GETBIT(m2, 7));
+    // CN
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P2_CENTER, GETBIT(m2, 8));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P2_CENTER, GETBIT(m2, 9));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P2_CENTER, GETBIT(m2, 10));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P2_CENTER, GETBIT(m2, 11));
+    // UL
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P2_UPLEFT, GETBIT(m2, 12));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P2_UPLEFT, GETBIT(m2, 13));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P2_UPLEFT, GETBIT(m2, 14));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P2_UPLEFT, GETBIT(m2, 15));
+    // DL
+    SETORCLRBIT(mux4067_vals[0], MUX4067_P2_DOWNLEFT, GETBIT(m2, 16));
+    SETORCLRBIT(mux4067_vals[1], MUX4067_P2_DOWNLEFT, GETBIT(m2, 17));
+    SETORCLRBIT(mux4067_vals[2], MUX4067_P2_DOWNLEFT, GETBIT(m2, 18));
+    SETORCLRBIT(mux4067_vals[3], MUX4067_P2_DOWNLEFT, GETBIT(m2, 19));
+    
+    // globals
+    SETORCLRBIT(mux4067_vals[4], MUX4067_TEST, GETBIT(m2, 20));
+    SETORCLRBIT(mux4067_vals[4], MUX4067_SERVICE, GETBIT(m2, 21));
+    SETORCLRBIT(mux4067_vals[4], MUX4067_CLEAR, GETBIT(m2, 22));
+    SETORCLRBIT(mux4067_vals[4], MUX4067_P1_COIN, GETBIT(m2, 23));
+    SETORCLRBIT(mux4067_vals[4], MUX4067_P2_COIN, GETBIT(m2, 24));
+/*
+
+#define MUX4067_P1_UPLEFT 23
+#define MUX4067_P1_UPRIGHT 22
+#define MUX4067_P1_CENTER 21
+#define MUX4067_P1_DOWNLEFT 20
+#define MUX4067_P1_DOWNRIGHT 19
+
+#define MUX4067_P2_UPLEFT 4
+#define MUX4067_P2_UPRIGHT 3
+#define MUX4067_P2_CENTER 2
+#define MUX4067_P2_DOWNLEFT 1
+#define MUX4067_P2_DOWNRIGHT 0
+
+#define MUX4067_P1_COIN 29
+#define MUX4067_P2_COIN 10
+
+#define MUX4067_TEST 30
+#define MUX4067_SERVICE 25
+#define MUX4067_CLEAR 24
+
+*/
 }
 
 uint32_t mux4067_merged(uint32_t* vals) {

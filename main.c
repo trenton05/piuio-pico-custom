@@ -121,6 +121,15 @@ struct lightsArray temp_lights = {
 
 extern uint32_t mux4067_vals_db[MUX_COUNT];
 
+void flash_input_mode() {
+    for (int i = 0; i <= input_mode; i++) {
+        sleep_ms(250);
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        sleep_ms(250);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    }
+}
+
 void update_input_mux() {
     uint32_t buf_mux_global;
     uint32_t buf_mux_p1;
@@ -228,6 +237,7 @@ void input_task() {
             config_mode = false;
             // save changes for mode to flash memory and reset device!
             write_input_mode(input_mode_tmp);
+            flash_input_mode();
             // enable watchdog and enter infinite loop to reset
             watchdog_enable(1, 1);
             while(1);
@@ -244,6 +254,13 @@ void input_task() {
 
     last_input = input;
     last_q = q;
+
+    if (!input.p1_ul || !input.p1_ur || !input.p1_cn || !input.p1_dl || !input.p1_dr ||
+        !input.p2_ul || !input.p2_ur || !input.p2_cn || !input.p2_dl || !input.p2_dr) {
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    } else {
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    }
 }
 
 void config_mode_led_update(uint32_t* buf) {
@@ -473,6 +490,7 @@ void hid_task() {
 
 void init() {
     get_input_mode();
+    flash_input_mode();
 
     switch (input_mode) {
         case INPUT_MODE_PIUIO:
@@ -538,6 +556,9 @@ void init() {
 }
 
 int main() {
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+
     board_init();
 
     // multicore_launch_core1(core1_entry);
@@ -551,6 +572,7 @@ int main() {
     sleep_ms(100);
 
     mux4067_init();
+
     lights_init();
 
     init();

@@ -23,8 +23,5 @@ extern uint sm;
 extern uint8_t last_mux;
 void lights_init();
 void lights_send(uint32_t* buf);
-void lights_enable();
-void lights_disable();
-void lights_reset();
 
 #endif

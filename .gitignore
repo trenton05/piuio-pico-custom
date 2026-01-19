@@ -1,4 +1,5 @@
 # Prerequisites
+*.uf2
 *.d
 
 # Compiled Object files
@@ -33,3 +34,4 @@
 
 .vscode
 build
+elf2uf2
