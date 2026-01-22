@@ -294,9 +294,9 @@ static uint32_t ws2812_color[5] = {
 #define KEYCODE_P2_COIN KEY_F6
 
 // F2, F9, F1
-#define KEYCODE_TEST KEY_F2
-#define KEYCODE_SERVICE KEY_F9
-#define KEYCODE_CLEAR KEY_F1
+#define KEYCODE_TEST KEY_1 // KEY_F2
+#define KEYCODE_SERVICE KEY_2 // KEY_F9
+#define KEYCODE_CLEAR KEY_3 // KEY_F1
 
 
 #endif //_PIUIO_CONFIG_H

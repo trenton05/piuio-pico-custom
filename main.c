@@ -32,6 +32,8 @@
 #include "reports/xinput_report.h"
 #include "reports/gamecube_report.h"
 
+#include "host_hid.h"
+
 // please fix all of this CDC code
 enum
 {
@@ -123,10 +125,10 @@ extern uint32_t mux4067_vals_db[MUX_COUNT];
 
 void flash_input_mode() {
     for (int i = 0; i <= input_mode; i++) {
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
         sleep_ms(250);
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
         sleep_ms(250);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
     }
 }
 
@@ -190,6 +192,8 @@ void update_input_mux() {
 }
 
 void input_task() {
+    static uint32_t last_ts = 0;
+    static bool led = false;
     uint32_t current_ts = board_millis();
 
     mux4067_update(lights.p1_mux, lights.p2_mux);
@@ -255,12 +259,17 @@ void input_task() {
     last_input = input;
     last_q = q;
 
-    if (!input.p1_ul || !input.p1_ur || !input.p1_cn || !input.p1_dl || !input.p1_dr ||
-        !input.p2_ul || !input.p2_ur || !input.p2_cn || !input.p2_dl || !input.p2_dr) {
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    } else {
+    if (!input.p1_ul || !input.p1_ur || !input.p1_cn || !input.p1_dl || !input.p1_dr
+        || !input.p2_ul || !input.p2_ur || !input.p2_cn || !input.p2_dl || !input.p2_dr
+        || !input.test || !input.service || !input.clear) {
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    } else {
+        if (last_ts / 1000 != current_ts / 1000) {
+            gpio_put(PICO_DEFAULT_LED_PIN, !led);
+            led = !led;
+        }
     }
+    last_ts = current_ts;
 }
 
 void config_mode_led_update(uint32_t* buf) {
@@ -581,6 +590,7 @@ int main() {
     sleep_ms(100);
 
     tusb_init();
+    host_hid_init();
 
     #ifdef BENCHMARK
     uint8_t loop_toggle = 0x00;

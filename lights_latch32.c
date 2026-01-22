@@ -60,12 +60,12 @@ void lights_send(uint32_t* buf) {
     gpio_put(C_SER2, GETBIT(*buf, LATCH_P2L_CENTER));
     lights_shift();
 
-    gpio_put(C_SER, GETBIT(*buf, LATCH_P1L_UPLEFT));
-    gpio_put(C_SER2, GETBIT(*buf, LATCH_P2L_UPLEFT));
-    lights_shift();
-
     gpio_put(C_SER, GETBIT(*buf, LATCH_P1L_DOWNLEFT));
     gpio_put(C_SER2, GETBIT(*buf, LATCH_P2L_DOWNLEFT));
+    lights_shift();
+
+    gpio_put(C_SER, GETBIT(*buf, LATCH_P1L_UPLEFT));
+    gpio_put(C_SER2, GETBIT(*buf, LATCH_P2L_UPLEFT));
     lights_shift();
 
     lights_shift();
